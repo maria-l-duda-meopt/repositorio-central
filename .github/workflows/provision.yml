@@ -1,0 +1,41 @@
+name: Provision Runner
+
+on:
+  workflow_call:
+    inputs:
+      gh_url:
+        required: true
+        type: string
+      runner_name:
+        required: true
+        type: string
+
+jobs:
+  provision:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+      - name: Create Container App Runner
+        run: |
+          az containerapp create \
+            --name ${{ inputs.runner_name }} \
+            --resource-group ${{ secrets.AZ_RESOURCE_GROUP }} \
+            --environment ${{ secrets.CONTAINERAPP_ENV_ID }} \
+            --image ${{ secrets.ACR_IMAGE }} \
+            --registry-server ${{ secrets.ACR_SERVER }} \
+            --registry-username ${{ secrets.ACR_USERNAME }} \
+            --registry-password ${{ secrets.ACR_PASSWORD }} \
+            --secrets gh-app-private-key=${{ secrets.GITHUB_APP_PRIVATE_KEY }} acr-pwd=${{ secrets.ACR_PASSWORD }} \
+            --env-vars \
+              GITHUB_APP_ID=${{ secrets.GITHUB_APP_ID }} \
+              GITHUB_APP_PRIVATE_KEY=gh-app-private-key \
+              GH_URL=${{ inputs.gh_url }} \
+            --cpu 1.0 --memory 2Gi \
+            --min-replicas 1 --max-replicas 1
+
+      - name: Wait for runner to register
+        run: sleep 30
